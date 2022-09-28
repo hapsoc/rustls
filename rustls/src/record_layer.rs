@@ -20,8 +20,8 @@ enum DirectionState {
 pub(crate) struct RecordLayer {
     message_encrypter: Box<dyn MessageEncrypter>,
     message_decrypter: Box<dyn MessageDecrypter>,
-    write_seq: u64,
-    read_seq: u64,
+    pub(crate) write_seq: u64,
+    pub(crate) read_seq: u64,
     encrypt_state: DirectionState,
     decrypt_state: DirectionState,
 

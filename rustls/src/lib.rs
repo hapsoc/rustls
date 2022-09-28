@@ -363,7 +363,8 @@ pub use crate::builder::{
     ConfigBuilder, ConfigSide, WantsCipherSuites, WantsKxGroups, WantsVerifier, WantsVersions,
 };
 pub use crate::conn::{
-    CommonState, Connection, ConnectionCommon, IoState, Reader, SideData, Writer,
+    AllSecrets, CommonState, Connection, ConnectionCommon, DirectionalSecrets, IoState, Reader,
+    SideData, Writer,
 };
 pub use crate::enums::{CipherSuite, ProtocolVersion, SignatureScheme};
 pub use crate::error::Error;

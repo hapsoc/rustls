@@ -1,4 +1,3 @@
-use crate::check::inappropriate_handshake_message;
 use crate::conn::{CommonState, ConnectionRandoms, State};
 use crate::enums::ProtocolVersion;
 use crate::error::Error;
@@ -20,6 +19,7 @@ use crate::ticketer;
 use crate::tls13::key_schedule::{KeyScheduleTraffic, KeyScheduleTrafficWithClientFinishedPending};
 use crate::tls13::Tls13CipherSuite;
 use crate::verify;
+use crate::{check::inappropriate_handshake_message, AllSecrets};
 #[cfg(feature = "quic")]
 use crate::{check::inappropriate_message, conn::Protocol};
 
@@ -1350,6 +1350,71 @@ impl State<ServerConnectionData> for ExpectTraffic {
                 .record_layer
                 .set_message_encrypter(self.suite.derive_encrypter(&write_key));
         }
+    }
+
+    fn export_all_secrets(&self) -> Result<AllSecrets, Error> {
+        let client_secret = self.key_schedule.client_secret();
+
+        let key_len = self
+            .suite
+            .common
+            .aead_algorithm
+            .key_len();
+
+        let mut client_key = vec![0u8; key_len];
+        let mut client_iv = vec![0u8; 12];
+
+        crate::tls13::key_schedule::hkdf_expand_info(
+            client_secret,
+            crate::tls13::key_schedule::PayloadU8Len(client_key.len()),
+            b"key",
+            &[],
+            |okm| okm.fill(&mut client_key),
+        )
+        .map_err(|_| Error::General("hkdf_expand_info failed".to_string()))?;
+
+        crate::tls13::key_schedule::hkdf_expand_info(
+            client_secret,
+            crate::tls13::key_schedule::PayloadU8Len(client_iv.len()),
+            b"iv",
+            &[],
+            |okm| okm.fill(&mut client_iv),
+        )
+        .map_err(|_| Error::General("hkdf_expand_info failed".to_string()))?;
+
+        let mut server_key = vec![0u8; key_len];
+        let mut server_iv = vec![0u8; 12];
+
+        crate::tls13::key_schedule::hkdf_expand_info(
+            self.key_schedule.server_secret(),
+            crate::tls13::key_schedule::PayloadU8Len(server_key.len()),
+            b"key",
+            &[],
+            |okm| okm.fill(&mut server_key),
+        )
+        .map_err(|_| Error::General("hkdf_expand_info failed".to_string()))?;
+
+        crate::tls13::key_schedule::hkdf_expand_info(
+            self.key_schedule.server_secret(),
+            crate::tls13::key_schedule::PayloadU8Len(server_iv.len()),
+            b"iv",
+            &[],
+            |okm| okm.fill(&mut server_iv),
+        )
+        .map_err(|_| Error::General("hkdf_expand_info failed".to_string()))?;
+
+        Ok(AllSecrets {
+            client: crate::DirectionalSecrets {
+                key: client_key,
+                iv: client_iv,
+                seq_number: 0,
+            },
+            server: crate::DirectionalSecrets {
+                key: server_key,
+                iv: server_iv,
+                seq_number: 0,
+            },
+        })
     }
 }
 

@@ -334,6 +334,14 @@ impl KeyScheduleTraffic {
         self.ks
             .export_keying_material(&self.current_exporter_secret, out, label, context)
     }
+
+    pub(crate) fn client_secret(&self) -> &hkdf::Prk {
+        &self.current_client_traffic_secret
+    }
+
+    pub(crate) fn server_secret(&self) -> &hkdf::Prk {
+        &self.current_server_traffic_secret
+    }
 }
 
 impl KeySchedule {
@@ -485,7 +493,7 @@ where
     hkdf_expand_info(secret, key_type, label, context, |okm| okm.into())
 }
 
-fn hkdf_expand_info<F, T, L>(
+pub(crate) fn hkdf_expand_info<F, T, L>(
     secret: &hkdf::Prk,
     key_type: L,
     label: &[u8],

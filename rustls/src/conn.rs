@@ -751,6 +751,50 @@ impl<Data> ConnectionCommon<Data> {
             Err(e) => Err(e.clone()),
         }
     }
+
+    /// Export all secrets so that this connection can be set up with KTLS, for
+    /// example.
+    pub fn export_all_secrets(&self) -> Result<AllSecrets, Error> {
+        match self.state.as_ref() {
+            Ok(st) => {
+                let mut secrets = st.export_all_secrets()?;
+                // TODO: no idea if this is right
+                match self.side {
+                    Side::Client => {
+                        secrets.client.seq_number = self.common_state.write_seq();
+                        secrets.server.seq_number = self.common_state.read_seq();
+                    }
+                    Side::Server => {
+                        secrets.server.seq_number = self.common_state.read_seq();
+                        secrets.client.seq_number = self.common_state.write_seq();
+                    }
+                }
+                Ok(secrets)
+            }
+            Err(e) => Err(e.clone()),
+        }
+    }
+}
+
+/// All secrets useful to set up a connection with kTLS
+pub struct AllSecrets {
+    /// Client secrets (read direction)
+    pub client: DirectionalSecrets,
+
+    /// Server secrets (write direction)
+    pub server: DirectionalSecrets,
+}
+
+/// Directional components of [AllSecrets]
+pub struct DirectionalSecrets {
+    /// the traffic key, size depends on the cipher suite
+    pub key: Vec<u8>,
+
+    /// for TLS1.3, this is 12 bytes (4 bytes salt, 8 bytes IV)
+    pub iv: Vec<u8>,
+
+    /// sequence number
+    pub seq_number: u64,
 }
 
 #[cfg(feature = "quic")]
@@ -1346,6 +1390,16 @@ impl CommonState {
         #[cfg(not(feature = "quic"))]
         false
     }
+
+    /// Returns the sequence number in the write direction
+    pub fn write_seq(&self) -> u64 {
+        self.record_layer.write_seq
+    }
+
+    /// Returns the sequence number in the read direction
+    pub fn read_seq(&self) -> u64 {
+        self.record_layer.read_seq
+    }
 }
 
 pub(crate) trait State<Data>: Send + Sync {
@@ -1362,6 +1416,12 @@ pub(crate) trait State<Data>: Send + Sync {
         _context: Option<&[u8]>,
     ) -> Result<(), Error> {
         Err(Error::HandshakeNotComplete)
+    }
+
+    fn export_all_secrets(&self) -> Result<AllSecrets, Error> {
+        Err(Error::General(
+            "export_all_secrets not supported".to_string(),
+        ))
     }
 
     fn perhaps_write_key_update(&mut self, _cx: &mut CommonState) {}
