@@ -211,7 +211,7 @@ impl fmt::Debug for Tls12CipherSuite {
 /// TLS1.2 per-connection keying material
 pub(crate) struct ConnectionSecrets {
     pub(crate) randoms: ConnectionRandoms,
-    suite: &'static Tls12CipherSuite,
+    pub(crate) suite: &'static Tls12CipherSuite,
     pub(crate) master_secret: [u8; 48],
 }
 
@@ -317,7 +317,7 @@ impl ConnectionSecrets {
         )
     }
 
-    fn make_key_block(&self) -> Vec<u8> {
+    pub(crate) fn make_key_block(&self) -> Vec<u8> {
         let suite = &self.suite;
         let common = &self.suite.common;
 
