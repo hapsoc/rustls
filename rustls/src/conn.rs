@@ -795,8 +795,9 @@ pub struct DirectionalSecrets {
     /// the traffic key, size depends on the cipher suite
     pub key: Vec<u8>,
 
-    /// this is an AEAD nonce, it's 12 bytes (4 bytes salt, 8 bytes IV)
-    /// for TLS 1.2, the 8 bytes of IV are taken from the key block.
+    /// TLS 1.3 GCM: 4 bytes salt, 8 bytes IV
+    /// TLS 1.2 GCM: 4 bytes salt (use [AllSecrets::extra_random] for IV)
+    /// ChaCha20 (all TLS versions): 12 bytes IV
     pub iv: Vec<u8>,
 
     /// sequence number
