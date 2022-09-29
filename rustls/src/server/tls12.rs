@@ -940,18 +940,35 @@ impl State<ServerConnectionData> for ExpectTraffic {
 
         let (client_key, key_block) = key_block.split_at(algo.key_len());
         let (server_key, key_block) = key_block.split_at(algo.key_len());
-        let (client_iv, key_block) = key_block.split_at(suite.fixed_iv_len);
-        let (server_iv, _extra) = key_block.split_at(suite.fixed_iv_len);
+        let (client_fixed_iv, key_block) = key_block.split_at(suite.fixed_iv_len);
+        let (server_fixed_iv, extra) = key_block.split_at(suite.fixed_iv_len);
+
+        // cf. https://www.rfc-editor.org/rfc/rfc5116#section-3.2.1
+        // the first 4 bytes (implicit) are well-specified, but the
+        // remaining 8 bytes (explicit) are not - `make_cipher_pair` just uses
+        // some extra bytes from the key block, and so do we.
+        //
+        // note that these are only used when encrypting, not decrypting, so
+        // even though we set it for both the client_iv and the server_iv,
+        // only one of them is going to end up being used.
+
+        let mut client_iv = vec![0u8; 12];
+        client_iv[..4].copy_from_slice(client_fixed_iv);
+        client_iv[4..].copy_from_slice(&extra[..8]);
+
+        let mut server_iv = vec![0u8; 12];
+        server_iv[..4].copy_from_slice(server_fixed_iv);
+        server_iv[4..].copy_from_slice(&extra[8..]);
 
         Ok(AllSecrets {
             client: crate::DirectionalSecrets {
                 key: client_key.into(),
-                iv: client_iv.into(),
+                iv: client_iv,
                 seq_number: 0,
             },
             server: crate::DirectionalSecrets {
                 key: server_key.into(),
-                iv: server_iv.into(),
+                iv: server_iv,
                 seq_number: 0,
             },
         })
