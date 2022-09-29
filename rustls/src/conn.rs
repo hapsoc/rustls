@@ -783,6 +783,11 @@ pub struct AllSecrets {
 
     /// Server secrets (write direction)
     pub server: DirectionalSecrets,
+
+    /// Extra random data, if you need it (for GCM IVs). This exists so the
+    /// caller is not tempted to generate those numbers themselves using a
+    /// non-cryptographically-secure RNG.
+    pub extra_random: Vec<u8>,
 }
 
 /// Directional components of [AllSecrets]

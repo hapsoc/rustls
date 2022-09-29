@@ -1404,6 +1404,7 @@ impl State<ServerConnectionData> for ExpectTraffic {
         .map_err(|_| Error::General("hkdf_expand_info failed".to_string()))?;
 
         Ok(AllSecrets {
+            extra_random: Default::default(),
             client: crate::DirectionalSecrets {
                 key: client_key,
                 iv: client_iv,
