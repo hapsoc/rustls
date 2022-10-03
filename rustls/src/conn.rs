@@ -758,11 +758,10 @@ impl<Data> ConnectionCommon<Data> {
         match self.state.as_ref() {
             Ok(st) => {
                 let mut secrets = st.export_all_secrets()?;
-                // TODO: no idea if this is right
                 match self.side {
                     Side::Client => {
-                        secrets.client.seq_number = self.common_state.read_seq();
-                        secrets.server.seq_number = self.common_state.write_seq();
+                        secrets.server.seq_number = self.common_state.read_seq();
+                        secrets.client.seq_number = self.common_state.write_seq();
                     }
                     Side::Server => {
                         secrets.server.seq_number = self.common_state.write_seq();
