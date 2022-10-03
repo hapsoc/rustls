@@ -1,4 +1,3 @@
-use crate::check::{inappropriate_handshake_message, inappropriate_message};
 use crate::conn::{CommonState, ConnectionRandoms, Side, State};
 use crate::enums::ProtocolVersion;
 use crate::error::Error;
@@ -20,6 +19,10 @@ use crate::sign::Signer;
 use crate::suites::SupportedCipherSuite;
 use crate::ticketer::TimeBase;
 use crate::tls12::{self, ConnectionSecrets, Tls12CipherSuite};
+use crate::{
+    check::{inappropriate_handshake_message, inappropriate_message},
+    AllSecrets,
+};
 use crate::{kx, verify};
 
 use super::client_conn::ClientConnectionData;
@@ -1106,5 +1109,32 @@ impl State<ClientConnectionData> for ExpectTraffic {
         self.secrets
             .export_keying_material(output, label, context);
         Ok(())
+    }
+
+    fn export_all_secrets(&self) -> Result<AllSecrets, Error> {
+        // Make a key block, and chop it up, cf. `ConnectionSecrets::make_cipher_pair`
+        let key_block = self.secrets.make_key_block();
+
+        let suite = &self.secrets.suite;
+        let algo = &suite.common.aead_algorithm;
+
+        let (client_key, key_block) = key_block.split_at(algo.key_len());
+        let (server_key, key_block) = key_block.split_at(algo.key_len());
+        let (client_iv, key_block) = key_block.split_at(suite.fixed_iv_len);
+        let (server_iv, extra) = key_block.split_at(suite.fixed_iv_len);
+
+        Ok(AllSecrets {
+            extra_random: extra.to_vec(),
+            client: crate::DirectionalSecrets {
+                key: client_key.into(),
+                iv: client_iv.into(),
+                seq_number: 0,
+            },
+            server: crate::DirectionalSecrets {
+                key: server_key.into(),
+                iv: server_iv.into(),
+                seq_number: 0,
+            },
+        })
     }
 }
